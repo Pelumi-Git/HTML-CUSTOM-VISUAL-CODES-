@@ -1,0 +1,160 @@
+/ =============================================================
+// POWER BI HTML VISUAL — Sub Category Bar Chart with Field Parameters
+// Table: Sales | Sub Category column: [Sub Category]
+// Measures: [TotalRevenue] | [Total Quantity] | [Customers] | [YoY%]
+// Paste as a New Measure in Power BI Desktop.
+// Requires the "HTML VIZ" visual from AppSource.
+// =============================================================
+
+Bar Chart HTML =
+
+VAR _selectedMetric =
+    SELECTEDVALUE('Parameter'[Parameter Order], 0)
+    -- ^ If your parameter table has a different name, update 'Parameter' here
+
+VAR _metricLabel =
+    SWITCH(
+        _selectedMetric,
+        0, "Revenue",
+        1, "Quantity",
+        2, "Customers",
+        3, "YoY%"
+    )
+
+VAR _isPercent = IF(_selectedMetric = 3, TRUE(), FALSE())
+
+-- ── Build per-subcategory rows ──────────────────────────────
+VAR _data =
+    ADDCOLUMNS(
+        SUMMARIZE('Sales', 'Sales'[Sub Category]),
+        "MetricValue",
+            SWITCH(
+                _selectedMetric,
+                0, [TotalRevenue],
+                1, [Total Quantity],
+                2, [Customers],
+                3, [YoY%]
+            )
+    )
+
+-- Sort descending by value, take top 20
+VAR _sorted =
+    TOPN(20, _data, [MetricValue], DESC)
+
+-- Concatenate sub category names  e.g. "Tables|Markers|Bookcases|..."
+VAR _cats =
+    CONCATENATEX(
+        _sorted,
+        'Sales'[Sub Category],
+        "||",
+        [MetricValue], DESC
+    )
+
+-- Concatenate values  e.g. "92000|87000|61000|..."
+VAR _vals =
+    CONCATENATEX(
+        _sorted,
+        FORMAT([MetricValue], "0.00"),
+        "||",
+        [MetricValue], DESC
+    )
+
+RETURN
+"<!DOCTYPE html><html><head><meta charset='UTF-8'>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Segoe UI,sans-serif;background:#fff;color:#1a1a1a;padding:12px}
+
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .tab{
+    padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;
+    cursor:pointer;border:none;background:#d4edda;color:#2d5a27;
+    transition:background 0.15s;
+  }
+  .tab.active{background:#4a7c3f;color:#fff;}
+  .tab:hover:not(.active){background:#b8dfc0}
+
+  .chart-wrap{width:100%;overflow:hidden}
+  .row{display:flex;align-items:center;margin-bottom:6px;gap:8px}
+  .cat-label{
+    font-size:11px;color:#444;text-align:right;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    min-width:110px;max-width:110px;
+  }
+  .bar-track{flex:1;background:#f0f0f0;border-radius:3px;height:20px;position:relative}
+  .bar-fill{
+    height:100%;border-radius:3px;
+    background:#4a7c3f;
+    transition:width 0.4s ease;
+  }
+  .bar-val{
+    font-size:10px;color:#333;margin-left:6px;
+    white-space:nowrap;min-width:48px;
+  }
+  .metric-title{
+    font-size:12px;font-weight:600;color:#4a7c3f;
+    text-align:center;margin-bottom:10px;letter-spacing:0.5px;
+  }
+</style>
+</head><body>
+
+<div class=tabs>
+  <button class=tab onclick=switchTab(0) id=tab0>Revenue</button>
+  <button class=tab onclick=switchTab(1) id=tab1>Quantity</button>
+  <button class=tab onclick=switchTab(2) id=tab2>Customers</button>
+  <button class=tab onclick=switchTab(3) id=tab3>YoY%</button>
+</div>
+
+<div class=metric-title id=metricTitle>" & _metricLabel & "</div>
+<div class=chart-wrap id=chartWrap></div>
+
+<script>
+var allData = {
+  0: { label: 'Revenue',   isPercent: false, cats: '" & _cats & "'.split('||'), vals: '" & _vals & "'.split('||').map(Number) },
+  1: { label: 'Quantity',  isPercent: false, cats: '" & _cats & "'.split('||'), vals: '" & _vals & "'.split('||').map(Number) },
+  2: { label: 'Customers', isPercent: false, cats: '" & _cats & "'.split('||'), vals: '" & _vals & "'.split('||').map(Number) },
+  3: { label: 'YoY%',      isPercent: true,  cats: '" & _cats & "'.split('||'), vals: '" & _vals & "'.split('||').map(Number) }
+};
+
+var active = " & _selectedMetric & ";
+
+function fmt(v, isPct){
+  if(isPct) return (v*100).toFixed(1)+'%';
+  if(v>=1000000) return '$'+(v/1000000).toFixed(1)+'M';
+  if(v>=1000)    return '$'+(v/1000).toFixed(0)+'K';
+  return v.toLocaleString();
+}
+
+function render(idx){
+  var d = allData[idx];
+  document.getElementById('metricTitle').textContent = d.label;
+
+  ['tab0','tab1','tab2','tab3'].forEach(function(id,i){
+    document.getElementById(id).className = 'tab' + (i===idx ? ' active' : '');
+  });
+
+  var maxV = Math.max.apply(null, d.vals.map(Math.abs));
+  var html = '';
+  for(var i=0;i<d.cats.length;i++){
+    var pct = maxV > 0 ? (Math.abs(d.vals[i])/maxV)*100 : 0;
+    var barColor = d.vals[i] < 0 ? '#c0392b' : '#4a7c3f';
+    html +=
+      '<div class=row>'+
+        '<div class=cat-label title="'+d.cats[i]+'">'+d.cats[i]+'</div>'+
+        '<div class=bar-track>'+
+          '<div class=bar-fill style="width:'+pct.toFixed(1)+'%;background:'+barColor+'"></div>'+
+        '</div>'+
+        '<div class=bar-val>'+fmt(d.vals[i], d.isPercent)+'</div>'+
+      '</div>';
+  }
+  document.getElementById('chartWrap').innerHTML = html;
+}
+
+function switchTab(idx){
+  active = idx;
+  render(idx);
+}
+
+render(active);
+</script>
+</body></html>"
