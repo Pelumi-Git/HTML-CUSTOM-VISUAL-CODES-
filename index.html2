@@ -1,0 +1,70 @@
+VAR _data =
+    ADDCOLUMNS(
+        SUMMARIZE(
+            'supply_chain_data',
+            'supply_chain_data'[Supplier name]
+        ),
+        "Rate", [Average Defect RateAvg Defect Rate]
+    )
+
+VAR _top5 =
+    TOPN(5, _data, [Rate], DESC)
+
+VAR _maxRate =
+    MAXX(_top5, [Rate])
+
+VAR _bars =
+    CONCATENATEX(
+        _top5,
+        VAR _supplier = supply_chain_data[Supplier name]
+        VAR _rate = [Rate]
+        VAR _width = DIVIDE(_rate, _maxRate) * 100
+
+        VAR _color =
+            IF(
+                _rate = _maxRate,
+                "#000000",     -- BLACK (Top supplier)
+                "#B0B0B0"      -- ASH (others)
+            )
+
+        RETURN
+            "<div style='display:flex;align-items:center;margin-bottom:8px;'>
+                
+                <div style='width:120px;font-size:12px;'>" & _supplier & "</div>
+                
+                <div style='flex:1;background:#eee;height:18px;border-radius:10px;'>
+                    
+                    <div style='width:" & FORMAT(_width,"0.0") & "%;
+                                background:" & _color & ";
+                                height:100%;
+                                border-radius:10px;
+                                display:flex;
+                                align-items:center;
+                                justify-content:flex-end;
+                                padding-right:6px;
+                                color:white;
+                                font-size:11px;'>
+                                
+                        " & FORMAT(_rate,"0.00") & "%
+                    
+                    </div>
+                </div>
+
+            </div>"
+    )
+
+VAR _kpi =
+    "<div style='margin-bottom:10px;font-family:Segoe UI;'>
+
+        <div style='font-size:12px;color:#666;'>Avg Defect Rate (Top 5)</div>
+        <div style='font-size:20px;font-weight:bold;'>" &
+            FORMAT(AVERAGEX(_top5,[Rate]),"0.00") & "%
+        </div>
+
+    </div>"
+
+RETURN
+    "<div style='font-family:Segoe UI;'>" &
+        _kpi &
+        _bars &
+    "</div>"
