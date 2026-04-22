@@ -1,0 +1,61 @@
+Product prodvolume Ash Bars = 
+
+-- 1. Scale using Production Volume (corrected)
+VAR MaxVol = 
+    MAXX(
+        ALLSELECTED('supply_chain_data'[Product type]),
+        [productionvolume]
+    )
+
+-- 2. Build chart
+VAR HTMLTable = 
+    CONCATENATEX(
+        ALLSELECTED('supply_chain_data'[Product type]),
+
+        VAR volume = [productionvolume]
+        VAR BarWidth = DIVIDE(volume, MaxVol) * 100
+
+        RETURN 
+            "<div style='margin-bottom: 15px;'>
+
+                <!-- LABEL + VALUE -->
+                <div style='display:flex;justify-content:space-between;
+                            font-family:Segoe UI;font-size:13px;
+                            color:#333;margin-bottom:5px;'>
+
+                    <span style='font-weight:600;'>" 
+                        & UPPER('supply_chain_data'[Product type]) & 
+                    "</span>
+
+                    <span style='color:#000000;font-weight:bold;'>" 
+                        & FORMAT(volume, "#,##0") & 
+                    "</span>
+
+                </div>
+
+                <!-- BAR TRACK -->
+                <div style='background-color:#E0E0E0;
+                            height:14px;width:100%;
+                            border-radius:10px;overflow:hidden;'>
+
+                    <!-- BAR -->
+                    <div style='background-color:#4B4B4B;
+                                height:100%;
+                                width:" & FORMAT(BarWidth, "0.0") & "%;
+                                border-radius:10px;'>
+                    </div>
+
+                </div>
+
+            </div>",
+
+        ""
+    )
+
+RETURN
+"<div style='padding:20px;
+             background-color:white;
+             border-radius:8px;
+             font-family:Segoe UI;'>"
+    & HTMLTable &
+"</div>"
