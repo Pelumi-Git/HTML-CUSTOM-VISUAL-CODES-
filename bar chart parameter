@@ -1,0 +1,126 @@
+BAR CHART ELEMENT = 
+VAR _selectedMetric = 
+    SELECTEDVALUE('KPIS'[KPIS Fields], 0)
+
+VAR _metricLabel =
+    SWITCH(
+        _selectedMetric,
+        0, "Revenue",
+        1, "Quantity",
+        2, "Customers",
+        3, "YoY%"
+    )
+
+-- ── REVENUE ──────────────────────────────────────────────────
+VAR _dataRev =
+    ADDCOLUMNS(
+        SUMMARIZE('Sales Dataset', 'Sales Dataset'[Sub-Category]),
+        "MetricValue", [TotalRevenue]
+    )
+VAR _sortedRev = TOPN(20, _dataRev, [MetricValue], DESC)
+VAR _catsRev   = CONCATENATEX(_sortedRev, 'Sales Dataset'[Sub-Category], "||", [MetricValue], DESC)
+VAR _valsRev   = CONCATENATEX(_sortedRev, FORMAT([MetricValue], "0.00"),  "||", [MetricValue], DESC)
+
+-- ── QUANTITY ─────────────────────────────────────────────────
+VAR _dataQty =
+    ADDCOLUMNS(
+        SUMMARIZE('Sales Dataset', 'Sales Dataset'[Sub-Category]),
+        "MetricValue", [totalquantity]
+    )
+VAR _sortedQty = TOPN(20, _dataQty, [MetricValue], DESC)
+VAR _catsQty   = CONCATENATEX(_sortedQty, 'Sales Dataset'[Sub-Category], "||", [MetricValue], DESC)
+VAR _valsQty   = CONCATENATEX(_sortedQty, FORMAT([MetricValue], "0.00"),  "||", [MetricValue], DESC)
+
+-- ── CUSTOMERS ────────────────────────────────────────────────
+VAR _dataCust =
+    ADDCOLUMNS(
+        SUMMARIZE('Sales Dataset', 'Sales Dataset'[Sub-Category]),
+        "MetricValue", [totalcustomers]
+    )
+VAR _sortedCust = TOPN(20, _dataCust, [MetricValue], DESC)
+VAR _catsCust   = CONCATENATEX(_sortedCust, 'Sales Dataset'[Sub-Category], "||", [MetricValue], DESC)
+VAR _valsCust   = CONCATENATEX(_sortedCust, FORMAT([MetricValue], "0.00"),  "||", [MetricValue], DESC)
+
+-- ── YOY% (2024 vs 2023) ──────────────────────────────────────
+VAR _dataYoy =
+    ADDCOLUMNS(
+        SUMMARIZE('Sales Dataset', 'Sales Dataset'[Sub-Category]),
+        "MetricValue", [yoy%]
+    )
+VAR _sortedYoy = TOPN(20, _dataYoy, [MetricValue], DESC)
+VAR _catsYoy   = CONCATENATEX(_sortedYoy, 'Sales Dataset'[Sub-Category], "||", [MetricValue], DESC)
+VAR _valsYoy   = CONCATENATEX(_sortedYoy, FORMAT([MetricValue], "0.0000"), "||", [MetricValue], DESC)
+
+-- ── STYLES ───────────────────────────────────────────────────
+VAR _s1  = "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>"
+VAR _s2  = "*{box-sizing:border-box;margin:0;padding:0}"
+VAR _s3  = "body{font-family:Segoe UI,sans-serif;background:transparent;color:#1a1a1a;padding:12px}"
+VAR _s4  = ".tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}"
+VAR _s5  = ".tab{padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#d4edda;color:#2d5a27}"
+VAR _s6  = ".tab.active{background:#4a7c3f;color:#fff}"
+VAR _s7  = ".tab:hover:not(.active){background:#b8dfc0}"
+VAR _s8  = ".chart-wrap{width:100%;overflow:hidden}"
+VAR _s9  = ".row{display:flex;align-items:center;margin-bottom:5px;gap:8px}"
+VAR _s10 = ".cat-label{font-size:11px;color:#ffffff;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:115px;max-width:115px}"
+VAR _s11 = ".bar-track{flex:1;background:rgba(0,0,0,0.08);border-radius:3px;height:18px}"
+VAR _s12 = ".bar-fill{height:100%;border-radius:3px;background:#4a7c3f}"
+VAR _s13 = ".bar-val{font-size:10px;color:#ffffff;margin-left:5px;white-space:nowrap;min-width:58px}"
+VAR _s14 = ".metric-title{font-size:13px;font-weight:700;color:#d4edda;text-align:center;margin-bottom:12px;letter-spacing:0.4px}"
+VAR _s15 = ".neg{background:#c0392b!important}"
+VAR _s16 = "</style></head><body>"
+
+-- ── BODY ─────────────────────────────────────────────────────
+VAR _b1 =
+    "<div class='tabs'>"
+    & "<button class='tab' onclick='switchTab(0)' id='tab0'>Revenue</button>"
+    & "<button class='tab' onclick='switchTab(1)' id='tab1'>Quantity</button>"
+    & "<button class='tab' onclick='switchTab(2)' id='tab2'>Customers</button>"
+    & "<button class='tab' onclick='switchTab(3)' id='tab3'>YoY%</button>"
+    & "</div>"
+VAR _b2 = "<div class='metric-title' id='metricTitle'>" & _metricLabel & "</div>"
+VAR _b3 = "<div class='chart-wrap' id='chartWrap'></div>"
+
+-- ── JAVASCRIPT ───────────────────────────────────────────────
+VAR _j1 = "<script>"
+VAR _j2 =
+    "var allData={"
+    & "0:{label:'Revenue',isPercent:false,isCurrency:true,cats:'"   & _catsRev  & "'.split('||'),vals:'" & _valsRev  & "'.split('||').map(Number)},"
+    & "1:{label:'Quantity',isPercent:false,isCurrency:false,cats:'" & _catsQty  & "'.split('||'),vals:'" & _valsQty  & "'.split('||').map(Number)},"
+    & "2:{label:'Customers',isPercent:false,isCurrency:false,cats:'"& _catsCust & "'.split('||'),vals:'" & _valsCust & "'.split('||').map(Number)},"
+    & "3:{label:'YoY% (2024 vs 2023)',isPercent:true,isCurrency:false,cats:'" & _catsYoy & "'.split('||'),vals:'" & _valsYoy & "'.split('||').map(Number)}"
+    & "};"
+VAR _j3 = "var active=" & _selectedMetric & ";"
+VAR _j4 =
+    "function fmt(v,isPct,isCur){"
+    & "var n=parseFloat(String(v).replace(/[^0-9.-]/g,''));"
+    & "if(isPct)return(n*100).toFixed(1)+'%';"
+    & "if(isCur&&n>=1000000)return'$'+(n/1000000).toFixed(2)+'M';"
+    & "if(isCur&&n>=1000)return'$'+(n/1000).toFixed(1)+'K';"
+    & "if(isCur)return'$'+n.toFixed(0);"
+    & "return Math.round(n).toLocaleString();}"
+VAR _j5 =
+    "function render(idx){"
+    & "var d=allData[idx];"
+    & "document.getElementById('metricTitle').textContent=d.label;"
+    & "['tab0','tab1','tab2','tab3'].forEach(function(id,i){"
+    & "document.getElementById(id).className='tab'+(i===idx?' active':'');});"
+    & "var maxV=Math.max.apply(null,d.vals.map(Math.abs));"
+    & "var html='';"
+    & "for(var i=0;i<d.cats.length;i++){"
+    & "var pct=maxV>0?(Math.abs(d.vals[i])/maxV)*100:0;"
+    & "var neg=d.vals[i]<0?'neg':'';"
+    & "html+='<div class=row>'"
+    & "+'<div class=cat-label>'+d.cats[i]+'</div>'"
+    & "+'<div class=bar-track><div class=bar-fill '+neg+' style=width:'+pct.toFixed(1)+'%></div></div>'"
+    & "+'<div class=bar-val>'+fmt(d.vals[i],d.isPercent,d.isCurrency)+'</div>'"
+    & "+'</div>';}"
+    & "document.getElementById('chartWrap').innerHTML=html;}"
+VAR _j6 = "function switchTab(idx){active=idx;render(idx);}"
+VAR _j7 = "render(active);</script></body></html>"
+
+RETURN
+    _s1  & _s2  & _s3  & _s4  & _s5  & _s6  & _s7  &
+    _s8  & _s9  & _s10 & _s11 & _s12 & _s13 & _s14 &
+    _s15 & _s16 &
+    _b1  & _b2  & _b3  &
+    _j1  & _j2  & _j3  & _j4  & _j5  & _j6  & _j7
