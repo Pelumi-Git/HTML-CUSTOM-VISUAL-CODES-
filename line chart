@@ -1,0 +1,134 @@
+Revenue Chart line HTML = 
+VAR _data =
+    ADDCOLUMNS(
+        SUMMARIZE(
+            'Sales Dataset',
+            'DATETABLE 3'[month]
+        ),
+        "Revenue", [TotalRevenue],
+        "MonthNum",
+            SWITCH(
+                'DATETABLE 3'[month],
+                "January",   1,  "February",  2,  "March",    3,
+                "April",     4,  "May",        5,  "June",     6,
+                "July",      7,  "August",     8,  "September",9,
+                "October",  10,  "November",  11,  "December", 12
+            )
+    )
+
+VAR _months =
+    CONCATENATEX(
+        TOPN(12, _data, [MonthNum], ASC),
+        'DATETABLE 3'[month],
+        "|",
+        [MonthNum], ASC
+    )
+
+VAR _values =
+    CONCATENATEX(
+        TOPN(12, _data, [MonthNum], ASC),
+        FORMAT([Revenue], "0"),
+        "|",
+        [MonthNum], ASC
+    )
+
+VAR _total   = SUMX(_data, [Revenue])
+VAR _avg     = AVERAGEX(_data, [Revenue])
+VAR _peakMon = MAXX(TOPN(1, _data, [Revenue], DESC), 'DATETABLE 3'[month])
+
+RETURN
+"<!DOCTYPE html><html><head><meta charset='UTF-8'>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Segoe UI,sans-serif;background:#fff;padding:16px;color:#1a1a1a}
+  .cards{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+  .card{background:#f5f5f5;border-radius:8px;padding:12px 16px;flex:1;min-width:100px}
+  .card-label{font-size:11px;color:#888;margin-bottom:4px}
+  .card-value{font-size:18px;font-weight:600;color:#1a1a1a}
+  svg text{font-family:Segoe UI,sans-serif}
+</style>
+</head><body>
+
+<div class='cards'>
+  <div class='card'>
+    <div class='card-label'>Total Revenue</div>
+    <div class='card-value'>$" & FORMAT(_total/1000,"#,##0") & "K</div>
+  </div>
+  <div class='card'>
+    <div class='card-label'>Monthly Avg</div>
+    <div class='card-value'>$" & FORMAT(_avg/1000,"#,##0") & "K</div>
+  </div>
+  <div class='card'>
+    <div class='card-label'>Peak Month</div>
+    <div class='card-value'>" & _peakMon & "</div>
+  </div>
+</div>
+
+<svg id='chart' viewBox='0 0 560 260' width='100%' height='260'></svg>
+
+<script>
+(function(){
+  var months = '" & _months & "'.split('|');
+  var values = '" & _values & "'.split('|').map(Number);
+  var n = months.length;
+
+  var svgW=560, svgH=260, padL=52, padR=16, padT=20, padB=32;
+  var W = svgW-padL-padR, H = svgH-padT-padB;
+
+  var minV = Math.min.apply(null,values)*0.9;
+  var maxV = Math.max.apply(null,values)*1.05;
+
+  function xPos(i){ return padL + (i/(n-1))*W; }
+  function yPos(v){ return padT + H - ((v-minV)/(maxV-minV))*H; }
+
+  var svg = document.getElementById('chart');
+  var ns  = 'http://www.w3.org/2000/svg';
+
+  function el(tag,attrs,parent){
+    var e=document.createElementNS(ns,tag);
+    for(var k in attrs) e.setAttribute(k,attrs[k]);
+    (parent||svg).appendChild(e); return e;
+  }
+
+  // Y grid lines + labels (4 ticks)
+  for(var t=0;t<=4;t++){
+    var v = minV + (maxV-minV)*(t/4);
+    var y = yPos(v);
+    el('line',{x1:padL,y1:y,x2:svgW-padR,y2:y,stroke:'#e8e8e8','stroke-width':'1'});
+    var label = v>=1000 ? '$'+(v/1000).toFixed(0)+'K' : '$'+v.toFixed(0);
+    var txt = el('text',{x:padL-6,y:y+4,'text-anchor':'end','font-size':'10','fill':'#999'});
+    txt.textContent = label;
+  }
+
+  // Area fill
+  var areaD = 'M'+xPos(0)+' '+svgH;
+  for(var i=0;i<n;i++) areaD += ' L'+xPos(i)+' '+yPos(values[i]);
+  areaD += ' L'+xPos(n-1)+' '+svgH+' Z';
+  el('path',{d:areaD,fill:'rgba(50,102,173,0.08)'});
+
+  // Line
+  var lineD = 'M'+xPos(0)+' '+yPos(values[0]);
+  for(var i=1;i<n;i++) lineD += ' L'+xPos(i)+' '+yPos(values[i]);
+  el('path',{d:lineD,fill:'none',stroke:'#3266ad','stroke-width':'2','stroke-linejoin':'round'});
+
+  // Dots + hover tooltips
+  for(var i=0;i<n;i++){
+    var g = el('g',{});
+    el('circle',{cx:xPos(i),cy:yPos(values[i]),r:'4',fill:'#3266ad',stroke:'#fff','stroke-width':'2'},g);
+    var tip = el('title',{},g);
+    tip.textContent = months[i]+': $'+(values[i]).toLocaleString();
+    svg.appendChild(g);
+  }
+
+  // X axis labels
+  for(var i=0;i<n;i++){
+    var lbl = el('text',{x:xPos(i),y:svgH-padB+18,'text-anchor':'middle','font-size':'10','fill':'#999'});
+    lbl.textContent = months[i].substring(0,3);
+  }
+
+  // X axis line
+  el('line',{x1:padL,y1:svgH-padB,x2:svgW-padR,y2:svgH-padB,stroke:'#e8e8e8','stroke-width':'1'});
+
+})();
+</script>
+</body></html>"
